@@ -1,0 +1,4 @@
+slots/
+__pycache__/
+*.bin
+.DS_Store
