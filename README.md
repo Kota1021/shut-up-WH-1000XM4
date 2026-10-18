@@ -67,6 +67,67 @@ made it possible. Follow each project's own license and warnings.
 - [Jovlang/xm4-voice-studio](https://github.com/Jovlang/xm4-voice-studio) (fork of [SadsArches/xm4-voice-studio](https://codeberg.org/SadsArches/xm4-voice-studio/)): the install sequence derived from Sony's app
 - [egaebel/sony-headphones-hack](https://github.com/egaebel/sony-headphones-hack): the earliest attempt
 
+### Step by step
+
+This is the procedure that worked for me on macOS with firmware 3.0.1. One
+caveat: I rebuilt the pack with my own unpublished script, which makes the two
+changes described in step 4. I have not run bsmith1698's `repack.py` with those
+changes applied.
+
+0. **Before you start**
+   - Charge the headset to at least 50%.
+   - In the Sound Connect app, set the voice-guidance language to **English**
+     and check that the prompts are now in English. This makes the official
+     English pack the one on the headset, which is also the pack you will
+     modify and keep as a backup.
+   - Quit Sound Connect and connect the headset to the Mac over Bluetooth.
+   - Install [uv](https://docs.astral.sh/uv/) and ffmpeg.
+
+1. **Clone the tools.** Put
+   [bsmith1698/sony-vp-extract](https://github.com/bsmith1698/sony-vp-extract)
+   and [auracast-research/race-toolkit](https://github.com/auracast-research/race-toolkit)
+   side by side in the same folder. `push_voice_pack.py` looks for
+   `race-toolkit` next to its own repository.
+
+2. **Get and extract the English pack.** In `sony-vp-extract`, run
+   `uv run extract_all.py`. It downloads the packs from Sony's server into
+   `voice-packs/` and extracts them into `extracted/<language>/prompt_00.mp3` …
+   `prompt_53.mp3`. Keep `voice-packs/VP_english_UPG_03.bin` unchanged as your
+   backup.
+
+3. **Put the new sounds in place.** In this repository, run
+   `uv run generate.py --slots slots/`. Copy `extracted/english/` to a new
+   folder, then copy the 24 files from `slots/` over it. The other 30 prompts,
+   such as low-battery warnings, stay as Sony's voice.
+
+4. **Rebuild the pack.** Build it from that folder with
+   `uv run cli/repack.py --build <folder> <output.bin> voice-packs/VP_english_UPG_03.bin`,
+   after making two changes to how `repack.py` builds the file:
+   - **Checksum:** the first 32 bytes of the file must be the SHA-256 of
+     everything from offset `0x100` to the end of the file, not from offset 32.
+     Bytes 32 to `0xFF` are `0xFF` padding in Sony's files.
+   - **Language code:** the first 32-bit word of the decompressed image (the
+     `version` value that `repack.py` copies from the base pack) must be `4`
+     (Spanish) instead of `1` (English). Otherwise the headset installs the
+     pack but keeps playing its built-in English voice.
+
+   Before writing anything, check the result: compute the SHA-256 of the
+   output file from offset `0x100` and compare it with its first 32 bytes.
+
+5. **Write it to the headset.** In `sony-vp-extract`, first run
+   `uv run cli/push_voice_pack.py <output.bin>` without options. This is a dry
+   run that only prints the plan. Then run it again with `--confirm` and type
+   `yes`. The transfer takes about 3 to 4 minutes; keep the headset close to
+   the Mac and do not turn it off.
+
+6. **Check.** The script should end with `FotaCommit -> return_code=0`. The
+   headset then reboots by itself and plays the new sounds. The app may now
+   show the language as Spanish. Do not change it, because that reinstalls an
+   official pack.
+
+**To go back to Sony's voice:** change the voice-guidance language in the app.
+The app installs the official pack for that language.
+
 ### Findings on firmware 3.0.1
 
 1. **Packs labelled English are ignored.**
